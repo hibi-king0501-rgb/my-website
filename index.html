@@ -3,7 +3,12 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
     <title>ローン返済シミュレーター</title>
 
     <link rel="stylesheet" href="style.css">
@@ -11,54 +16,475 @@
 
 <body>
 
-    <div class="container">
-
-        <h1>ローン返済シミュレーター</h1>
-
-        <p class="description">
-            借入条件を入力すると、毎月の返済額を計算します。
-        </p>
-
-        <label for="amount">借入金額（円）</label>
-        <input type="number" id="amount" placeholder="例：10000000">
-
-        <label for="rate">年利（％）</label>
-        <input type="number" id="rate" step="0.01" placeholder="例：1.5">
-
-        <label for="years">返済期間（年）</label>
-        <input type="number" id="years" placeholder="例：10">
-
-        <button id="calculateButton">
-            計算する
-        </button>
-
-        <div class="result">
-
-            <h2>シミュレーション結果</h2>
+    <header class="header">
+        <div class="header-inner">
+            <h1>ローン返済シミュレーター</h1>
 
             <p>
-                毎月返済額
-                <span id="monthlyPayment">-</span>
+                元利均等・元金均等・ボーナス返済・繰上返済を試算できます
             </p>
+        </div>
+    </header>
 
-            <p>
-                総返済額
-                <span id="totalPayment">-</span>
-            </p>
+    <main class="container">
 
-            <p>
-                総利息額
-                <span id="totalInterest">-</span>
-            </p>
+        <section class="card">
+
+            <h2>基本条件</h2>
+
+            <div
+                id="errorMessage"
+                class="error-message"
+                role="alert"
+            ></div>
+
+            <div class="form-grid">
+
+                <div class="form-group">
+                    <label for="amount">
+                        借入金額
+                    </label>
+
+                    <div class="input-unit">
+                        <input
+                            type="number"
+                            id="amount"
+                            min="1"
+                            step="10000"
+                            value="10000000"
+                        >
+                        <span>円</span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="annualRate">
+                        年利
+                    </label>
+
+                    <div class="input-unit">
+                        <input
+                            type="number"
+                            id="annualRate"
+                            min="0"
+                            max="100"
+                            step="0.01"
+                            value="1.5"
+                        >
+                        <span>％</span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="years">
+                        返済期間
+                    </label>
+
+                    <div class="input-unit">
+                        <input
+                            type="number"
+                            id="years"
+                            min="1"
+                            max="50"
+                            step="1"
+                            value="10"
+                        >
+                        <span>年</span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="repaymentMethod">
+                        返済方法
+                    </label>
+
+                    <select id="repaymentMethod">
+                        <option value="equalPayment">
+                            元利均等返済
+                        </option>
+
+                        <option value="equalPrincipal">
+                            元金均等返済
+                        </option>
+                    </select>
+                </div>
+
+            </div>
+        </section>
+
+        <section class="card">
+
+            <div class="section-title-row">
+                <div>
+                    <h2>ボーナス返済</h2>
+                    <p class="section-description">
+                        借入金額の一部を半年ごとの返済に分けます。
+                    </p>
+                </div>
+
+                <label class="switch-label">
+                    <input
+                        type="checkbox"
+                        id="useBonus"
+                    >
+                    <span>利用する</span>
+                </label>
+            </div>
+
+            <div
+                id="bonusFields"
+                class="conditional-area hidden"
+            >
+
+                <div class="form-grid">
+
+                    <div class="form-group">
+                        <label for="bonusPrincipal">
+                            ボーナス返済に充てる元金
+                        </label>
+
+                        <div class="input-unit">
+                            <input
+                                type="number"
+                                id="bonusPrincipal"
+                                min="0"
+                                step="10000"
+                                value="2000000"
+                            >
+                            <span>円</span>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="firstBonusMonth">
+                            最初のボーナス返済
+                        </label>
+
+                        <select id="firstBonusMonth">
+                            <option value="1">1か月目</option>
+                            <option value="2">2か月目</option>
+                            <option value="3">3か月目</option>
+                            <option value="4">4か月目</option>
+                            <option value="5">5か月目</option>
+                            <option value="6" selected>
+                                6か月目
+                            </option>
+                        </select>
+                    </div>
+
+                </div>
+
+                <p class="help-text">
+                    最初の返済後は6か月ごとにボーナス返済を行う前提です。
+                </p>
+
+            </div>
+        </section>
+
+        <section class="card">
+
+            <div class="section-title-row">
+                <div>
+                    <h2>一部繰上返済</h2>
+                    <p class="section-description">
+                        指定した月に一度だけ繰上返済します。
+                    </p>
+                </div>
+
+                <label class="switch-label">
+                    <input
+                        type="checkbox"
+                        id="usePrepayment"
+                    >
+                    <span>利用する</span>
+                </label>
+            </div>
+
+            <div
+                id="prepaymentFields"
+                class="conditional-area hidden"
+            >
+
+                <div class="form-grid">
+
+                    <div class="form-group">
+                        <label for="prepaymentMonth">
+                            繰上返済する月
+                        </label>
+
+                        <div class="input-unit">
+                            <input
+                                type="number"
+                                id="prepaymentMonth"
+                                min="1"
+                                step="1"
+                                value="24"
+                            >
+                            <span>か月目</span>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="prepaymentAmount">
+                            繰上返済額
+                        </label>
+
+                        <div class="input-unit">
+                            <input
+                                type="number"
+                                id="prepaymentAmount"
+                                min="1"
+                                step="10000"
+                                value="1000000"
+                            >
+                            <span>円</span>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="prepaymentType">
+                            繰上返済方式
+                        </label>
+
+                        <select id="prepaymentType">
+                            <option value="term">
+                                期間短縮型
+                            </option>
+
+                            <option value="payment">
+                                返済額軽減型
+                            </option>
+                        </select>
+                    </div>
+
+                </div>
+
+                <p class="help-text">
+                    期間短縮型は返済額を原則維持し、返済期間を短縮します。
+                    返済額軽減型は当初期間を維持して、その後の返済額を再計算します。
+                </p>
+
+            </div>
+        </section>
+
+        <div class="action-area">
+
+            <button
+                type="button"
+                id="calculateButton"
+                class="primary-button"
+            >
+                シミュレーションする
+            </button>
+
+            <button
+                type="button"
+                id="resetButton"
+                class="secondary-button"
+            >
+                入力を初期化
+            </button>
 
         </div>
 
-        <p class="note">
-            ※元利均等返済・毎月返済として試算しています。
-            実際の返済額とは異なる場合があります。
-        </p>
+        <section
+            id="resultSection"
+            class="result-section hidden"
+            aria-live="polite"
+        >
 
-    </div>
+            <section class="card">
+
+                <h2>シミュレーション結果</h2>
+
+                <div class="summary-grid">
+
+                    <div class="summary-item highlight">
+                        <span class="summary-label">
+                            初回返済額
+                        </span>
+
+                        <strong id="firstPayment">
+                            0円
+                        </strong>
+                    </div>
+
+                    <div class="summary-item">
+                        <span class="summary-label">
+                            通常月の当初返済額
+                        </span>
+
+                        <strong id="regularPayment">
+                            0円
+                        </strong>
+                    </div>
+
+                    <div class="summary-item">
+                        <span class="summary-label">
+                            ボーナス月の当初返済額
+                        </span>
+
+                        <strong id="bonusPayment">
+                            0円
+                        </strong>
+                    </div>
+
+                    <div class="summary-item">
+                        <span class="summary-label">
+                            総返済額
+                        </span>
+
+                        <strong id="totalPayment">
+                            0円
+                        </strong>
+                    </div>
+
+                    <div class="summary-item">
+                        <span class="summary-label">
+                            総利息額
+                        </span>
+
+                        <strong id="totalInterest">
+                            0円
+                        </strong>
+                    </div>
+
+                    <div class="summary-item">
+                        <span class="summary-label">
+                            繰上返済額
+                        </span>
+
+                        <strong id="actualPrepayment">
+                            0円
+                        </strong>
+                    </div>
+
+                    <div class="summary-item">
+                        <span class="summary-label">
+                            実際の返済期間
+                        </span>
+
+                        <strong id="actualTerm">
+                            0年0か月
+                        </strong>
+                    </div>
+
+                    <div class="summary-item">
+                        <span class="summary-label">
+                            短縮期間
+                        </span>
+
+                        <strong id="reducedTerm">
+                            0か月
+                        </strong>
+                    </div>
+
+                </div>
+
+            </section>
+
+            <section class="card">
+
+                <h2>金利上昇時の比較</h2>
+
+                <p class="section-description">
+                    同じ借入金額・返済期間で、金利だけを変更した概算です。
+                </p>
+
+                <div class="table-wrapper">
+
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ケース</th>
+                                <th>年利</th>
+                                <th>当初通常月返済額</th>
+                                <th>総利息額</th>
+                            </tr>
+                        </thead>
+
+                        <tbody id="rateComparisonBody"></tbody>
+                    </table>
+
+                </div>
+
+            </section>
+
+            <section class="card">
+
+                <div class="section-title-row">
+
+                    <div>
+                        <h2>返済予定表</h2>
+
+                        <p class="section-description">
+                            繰上返済を含む概算の返済予定表です。
+                        </p>
+                    </div>
+
+                    <button
+                        type="button"
+                        id="toggleScheduleButton"
+                        class="small-button"
+                    >
+                        全期間を表示
+                    </button>
+
+                </div>
+
+                <div class="table-wrapper schedule-wrapper">
+
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>回</th>
+                                <th>予定返済額</th>
+                                <th>元金</th>
+                                <th>利息</th>
+                                <th>ボーナス返済</th>
+                                <th>繰上返済</th>
+                                <th>返済後残高</th>
+                            </tr>
+                        </thead>
+
+                        <tbody id="scheduleBody"></tbody>
+                    </table>
+
+                </div>
+
+                <p id="scheduleNote" class="help-text"></p>
+
+            </section>
+
+        </section>
+
+        <section class="card disclaimer">
+
+            <h2>ご注意</h2>
+
+            <ul>
+                <li>
+                    本シミュレーターは、毎月同じ利率を用いる概算計算です。
+                </li>
+
+                <li>
+                    実際の返済額は、金融機関の端数処理、日割計算、
+                    返済日、金利見直しルールなどにより異なります。
+                </li>
+
+                <li>
+                    返済予定表では、計算上の端数を最終回返済で調整します。
+                </li>
+
+                <li>
+                    公開リポジトリには、顧客名、口座情報、
+                    実際の融資条件などを登録しないでください。
+                </li>
+            </ul>
+
+        </section>
+
+    </main>
 
     <script src="script.js"></script>
 
