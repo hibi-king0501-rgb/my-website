@@ -1,17 +1,95 @@
 body {
-    background-color: #f5f5f5;
-    text-align: center;
-    font-family: sans-serif;
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background-color: #f3f6fa;
+    color: #333;
+}
+
+.container {
+    width: 90%;
+    max-width: 600px;
+    margin: 50px auto;
+    background-color: white;
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
 }
 
 h1 {
-    color: blue;
+    text-align: center;
+    color: #005bac;
+}
+
+.description {
+    text-align: center;
+    color: #666;
+    margin-bottom: 30px;
+}
+
+label {
+    display: block;
+    margin-top: 20px;
+    margin-bottom: 8px;
+    font-weight: bold;
+}
+
+input {
+    width: 100%;
+    padding: 12px;
+    font-size: 16px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    box-sizing: border-box;
 }
 
 button {
-    background-color: blue;
+    width: 100%;
+    margin-top: 30px;
+    padding: 14px;
+
+    background-color: #005bac;
     color: white;
-    padding: 10px 20px;
+
     border: none;
-    border-radius: 5px;
+    border-radius: 6px;
+
+    font-size: 18px;
+    font-weight: bold;
+
+    cursor: pointer;
 }
+
+button:hover {
+    background-color: #00458a;
+}
+
+.result {
+    margin-top: 30px;
+    padding: 20px;
+    background-color: #eef6ff;
+    border-radius: 8px;
+}
+
+.result h2 {
+    margin-top: 0;
+    color: #005bac;
+}
+
+.result p {
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 1px solid #ddd;
+    padding: 12px 0;
+}
+
+.result span {
+    font-weight: bold;
+    color: #005bac;
+}
+
+.note {
+    margin-top: 20px;
+    color: #777;
+    font-size: 12px;
+}
+
