@@ -3,134 +3,500 @@
 /*
     ローン返済シミュレーター
 
-    主な前提
-    ・利息は毎月計算
-    ・ボーナス返済は半年ごと
-    ・金額は内部では小数で計算
-    ・表示時に1円単位で四捨五入
-    ・最終回に端数を調整
+    対応機能
+    ・元利均等返済
+    ・元金均等返済
+    ・返済予定表
+    ・印刷
+
+    計算上は小数を保持し、
+    画面表示時に1円単位で四捨五入します。
 */
 
-const elements = {
-    amount: document.getElementById("amount"),
-    annualRate: document.getElementById("annualRate"),
-    years: document.getElementById("years"),
-    repaymentMethod:
-        document.getElementById("repaymentMethod"),
+const loanAmountInput =
+    document.getElementById("loanAmount");
 
-    useBonus: document.getElementById("useBonus"),
-    bonusFields:
-        document.getElementById("bonusFields"),
-    bonusPrincipal:
-        document.getElementById("bonusPrincipal"),
-    firstBonusMonth:
-        document.getElementById("firstBonusMonth"),
+const annualRateInput =
+    document.getElementById("annualRate");
 
-    usePrepayment:
-        document.getElementById("usePrepayment"),
-    prepaymentFields:
-        document.getElementById("prepaymentFields"),
-    prepaymentMonth:
-        document.getElementById("prepaymentMonth"),
-    prepaymentAmount:
-        document.getElementById("prepaymentAmount"),
-    prepaymentType:
-        document.getElementById("prepaymentType"),
+const repaymentYearsInput =
+    document.getElementById("repaymentYears");
 
-    calculateButton:
-        document.getElementById("calculateButton"),
-    resetButton:
-        document.getElementById("resetButton"),
+const repaymentMethodSelect =
+    document.getElementById("repaymentMethod");
 
-    errorMessage:
-        document.getElementById("errorMessage"),
-    resultSection:
-        document.getElementById("resultSection"),
+const calculateButton =
+    document.getElementById("calculateButton");
 
-    firstPayment:
-        document.getElementById("firstPayment"),
-    regularPayment:
-        document.getElementById("regularPayment"),
-    bonusPayment:
-        document.getElementById("bonusPayment"),
-    totalPayment:
-        document.getElementById("totalPayment"),
-    totalInterest:
-        document.getElementById("totalInterest"),
-    actualPrepayment:
-        document.getElementById("actualPrepayment"),
-    actualTerm:
-        document.getElementById("actualTerm"),
-    reducedTerm:
-        document.getElementById("reducedTerm"),
+const printButton =
+    document.getElementById("printButton");
 
-    rateComparisonBody:
-        document.getElementById("rateComparisonBody"),
+const methodDescription =
+    document.getElementById("methodDescription");
 
-    scheduleBody:
-        document.getElementById("scheduleBody"),
-    scheduleNote:
-        document.getElementById("scheduleNote"),
-    toggleScheduleButton:
-        document.getElementById("toggleScheduleButton")
-};
+const errorMessage =
+    document.getElementById("errorMessage");
 
-let currentSchedule = [];
-let showFullSchedule = false;
+const resultSection =
+    document.getElementById("resultSection");
+
+const firstPaymentElement =
+    document.getElementById("firstPayment");
+
+const lastPaymentElement =
+    document.getElementById("lastPayment");
+
+const totalPaymentElement =
+    document.getElementById("totalPayment");
+
+const totalInterestElement =
+    document.getElementById("totalInterest");
+
+const conditionSummary =
+    document.getElementById("conditionSummary");
+
+const methodNote =
+    document.getElementById("methodNote");
+
+const scheduleSummary =
+    document.getElementById("scheduleSummary");
+
+const scheduleBody =
+    document.getElementById("scheduleBody");
 
 
-/* ------------------------------
-   イベント設定
------------------------------- */
-
-elements.useBonus.addEventListener(
+repaymentMethodSelect.addEventListener(
     "change",
-    updateConditionalFields
+    updateMethodDescription
 );
 
-elements.usePrepayment.addEventListener(
-    "change",
-    updateConditionalFields
-);
-
-elements.calculateButton.addEventListener(
+calculateButton.addEventListener(
     "click",
-    runSimulation
+    calculateLoan
 );
 
-elements.resetButton.addEventListener(
+printButton.addEventListener(
     "click",
-    resetForm
-);
-
-elements.toggleScheduleButton.addEventListener(
-    "click",
-    toggleSchedule
+    function () {
+        window.print();
+    }
 );
 
 
-/* ------------------------------
-   画面制御
------------------------------- */
+/* 返済方法の説明を変更 */
 
-function updateConditionalFields() {
-    elements.bonusFields.classList.toggle(
-        "hidden",
-        !elements.useBonus.checked
-    );
+function updateMethodDescription() {
+    if (
+        repaymentMethodSelect.value ===
+        "equalPayment"
+    ) {
+        methodDescription.textContent =
+            "毎月の返済額が原則一定です。";
+    } else {
+        methodDescription.textContent =
+            "毎月の元金返済額が一定で、返済額は徐々に減少します。";
+    }
+}
 
-    elements.prepaymentFields.classList.toggle(
-        "hidden",
-        !elements.usePrepayment.checked
+
+/* 入力内容を確認 */
+
+function validateInputs(
+    loanAmount,
+    annualRate,
+    repaymentYears
+) {
+    if (
+        !Number.isFinite(loanAmount) ||
+        loanAmount <= 0
+    ) {
+        return "借入金額を1円以上で入力してください。";
+    }
+
+    if (
+        !Number.isFinite(annualRate) ||
+        annualRate < 0 ||
+        annualRate > 100
+    ) {
+        return "年利を0％以上100％以下で入力してください。";
+    }
+
+    if (
+        !Number.isInteger(repaymentYears) ||
+        repaymentYears < 1 ||
+        repaymentYears > 50
+    ) {
+        return "返済期間を1年以上50年以下の整数で入力してください。";
+    }
+
+    return "";
+}
+
+
+/* 計算実行 */
+
+function calculateLoan() {
+    clearError();
+
+    const loanAmount =
+        Number(loanAmountInput.value);
+
+    const annualRate =
+        Number(annualRateInput.value);
+
+    const repaymentYears =
+        Number(repaymentYearsInput.value);
+
+    const repaymentMethod =
+        repaymentMethodSelect.value;
+
+    const validationMessage =
+        validateInputs(
+            loanAmount,
+            annualRate,
+            repaymentYears
+        );
+
+    if (validationMessage) {
+        showError(validationMessage);
+        return;
+    }
+
+    const numberOfPayments =
+        repaymentYears * 12;
+
+    const monthlyRate =
+        annualRate / 100 / 12;
+
+    let result;
+
+    if (
+        repaymentMethod ===
+        "equalPayment"
+    ) {
+        result =
+            calculateEqualPaymentSchedule(
+                loanAmount,
+                monthlyRate,
+                numberOfPayments
+            );
+    } else {
+        result =
+            calculateEqualPrincipalSchedule(
+                loanAmount,
+                monthlyRate,
+                numberOfPayments
+            );
+    }
+
+    displayResult(
+        result,
+        loanAmount,
+        annualRate,
+        repaymentYears,
+        repaymentMethod
     );
 }
 
 
-function showError(message) {
-    elements.errorMessage.textContent = message;
-    elements.errorMessage.classList.add("visible");
+/* 元利均等返済 */
 
-    elements.errorMessage.scrollIntoView({
+function calculateEqualPaymentSchedule(
+    loanAmount,
+    monthlyRate,
+    numberOfPayments
+) {
+    let monthlyPayment;
+
+    if (monthlyRate === 0) {
+        monthlyPayment =
+            loanAmount / numberOfPayments;
+    } else {
+        const rateFactor =
+            Math.pow(
+                1 + monthlyRate,
+                numberOfPayments
+            );
+
+        monthlyPayment =
+            loanAmount *
+            monthlyRate *
+            rateFactor /
+            (rateFactor - 1);
+    }
+
+    let remainingBalance =
+        loanAmount;
+
+    let totalPayment = 0;
+    let totalInterest = 0;
+
+    const schedule = [];
+
+    for (
+        let paymentNumber = 1;
+        paymentNumber <= numberOfPayments;
+        paymentNumber += 1
+    ) {
+        const interestPayment =
+            remainingBalance * monthlyRate;
+
+        let principalPayment =
+            monthlyPayment - interestPayment;
+
+        let actualPayment =
+            monthlyPayment;
+
+        /*
+            最終回は残高と利息を全額返済し、
+            小数誤差を調整する。
+        */
+        if (
+            paymentNumber === numberOfPayments ||
+            principalPayment > remainingBalance
+        ) {
+            principalPayment =
+                remainingBalance;
+
+            actualPayment =
+                principalPayment +
+                interestPayment;
+        }
+
+        remainingBalance -=
+            principalPayment;
+
+        if (
+            Math.abs(remainingBalance) <
+            0.000001
+        ) {
+            remainingBalance = 0;
+        }
+
+        totalPayment += actualPayment;
+        totalInterest += interestPayment;
+
+        schedule.push({
+            paymentNumber:
+                paymentNumber,
+            paymentAmount:
+                actualPayment,
+            principalAmount:
+                principalPayment,
+            interestAmount:
+                interestPayment,
+            remainingBalance:
+                remainingBalance
+        });
+    }
+
+    return {
+        schedule: schedule,
+        totalPayment: totalPayment,
+        totalInterest: totalInterest
+    };
+}
+
+
+/* 元金均等返済 */
+
+function calculateEqualPrincipalSchedule(
+    loanAmount,
+    monthlyRate,
+    numberOfPayments
+) {
+    const standardPrincipalPayment =
+        loanAmount / numberOfPayments;
+
+    let remainingBalance =
+        loanAmount;
+
+    let totalPayment = 0;
+    let totalInterest = 0;
+
+    const schedule = [];
+
+    for (
+        let paymentNumber = 1;
+        paymentNumber <= numberOfPayments;
+        paymentNumber += 1
+    ) {
+        const interestPayment =
+            remainingBalance * monthlyRate;
+
+        let principalPayment =
+            standardPrincipalPayment;
+
+        /*
+            最終回は残高全額を元金返済とし、
+            小数誤差を調整する。
+        */
+        if (
+            paymentNumber === numberOfPayments ||
+            principalPayment > remainingBalance
+        ) {
+            principalPayment =
+                remainingBalance;
+        }
+
+        const actualPayment =
+            principalPayment +
+            interestPayment;
+
+        remainingBalance -=
+            principalPayment;
+
+        if (
+            Math.abs(remainingBalance) <
+            0.000001
+        ) {
+            remainingBalance = 0;
+        }
+
+        totalPayment += actualPayment;
+        totalInterest += interestPayment;
+
+        schedule.push({
+            paymentNumber:
+                paymentNumber,
+            paymentAmount:
+                actualPayment,
+            principalAmount:
+                principalPayment,
+            interestAmount:
+                interestPayment,
+            remainingBalance:
+                remainingBalance
+        });
+    }
+
+    return {
+        schedule: schedule,
+        totalPayment: totalPayment,
+        totalInterest: totalInterest
+    };
+}
+
+
+/* 結果表示 */
+
+function displayResult(
+    result,
+    loanAmount,
+    annualRate,
+    repaymentYears,
+    repaymentMethod
+) {
+    const firstSchedule =
+        result.schedule[0];
+
+    const lastSchedule =
+        result.schedule[
+            result.schedule.length - 1
+        ];
+
+    firstPaymentElement.textContent =
+        formatYen(
+            firstSchedule.paymentAmount
+        );
+
+    lastPaymentElement.textContent =
+        formatYen(
+            lastSchedule.paymentAmount
+        );
+
+    totalPaymentElement.textContent =
+        formatYen(result.totalPayment);
+
+    totalInterestElement.textContent =
+        formatYen(result.totalInterest);
+
+    const methodName =
+        repaymentMethod === "equalPayment"
+            ? "元利均等返済"
+            : "元金均等返済";
+
+    conditionSummary.textContent =
+        `${formatYen(loanAmount)}・年利${annualRate.toFixed(2)}％・${repaymentYears}年・${methodName}`;
+
+    scheduleSummary.textContent =
+        `全${result.schedule.length}回の返済予定を表示しています。`;
+
+    if (
+        repaymentMethod ===
+        "equalPayment"
+    ) {
+        methodNote.textContent =
+            "元利均等返済は、元金と利息を合わせた毎月の返済額が原則として一定になる方式です。";
+    } else {
+        methodNote.textContent =
+            "元金均等返済は、毎月返済する元金が一定です。残高の減少に伴って利息も減るため、毎月の返済額は徐々に少なくなります。";
+    }
+
+    displaySchedule(result.schedule);
+
+    resultSection.classList.remove(
+        "hidden"
+    );
+
+    resultSection.scrollIntoView({
+        behavior: "smooth",
+        block: "start"
+    });
+}
+
+
+/* 返済予定表を作成 */
+
+function displaySchedule(schedule) {
+    scheduleBody.innerHTML = "";
+
+    const fragment =
+        document.createDocumentFragment();
+
+    schedule.forEach(function (item) {
+        const row =
+            document.createElement("tr");
+
+        row.innerHTML = `
+            <td>
+                ${item.paymentNumber}回
+            </td>
+
+            <td>
+                ${formatYen(item.paymentAmount)}
+            </td>
+
+            <td>
+                ${formatYen(item.principalAmount)}
+            </td>
+
+            <td>
+                ${formatYen(item.interestAmount)}
+            </td>
+
+            <td>
+                ${formatYen(item.remainingBalance)}
+            </td>
+        `;
+
+        fragment.appendChild(row);
+    });
+
+    scheduleBody.appendChild(fragment);
+}
+
+
+/* エラー表示 */
+
+function showError(message) {
+    errorMessage.textContent = message;
+
+    errorMessage.classList.add(
+        "visible"
+    );
+
+    errorMessage.scrollIntoView({
         behavior: "smooth",
         block: "center"
     });
@@ -138,995 +504,18 @@ function showError(message) {
 
 
 function clearError() {
-    elements.errorMessage.textContent = "";
-    elements.errorMessage.classList.remove("visible");
-}
+    errorMessage.textContent = "";
 
-
-function resetForm() {
-    elements.amount.value = 10000000;
-    elements.annualRate.value = 1.5;
-    elements.years.value = 10;
-    elements.repaymentMethod.value = "equalPayment";
-
-    elements.useBonus.checked = false;
-    elements.bonusPrincipal.value = 2000000;
-    elements.firstBonusMonth.value = 6;
-
-    elements.usePrepayment.checked = false;
-    elements.prepaymentMonth.value = 24;
-    elements.prepaymentAmount.value = 1000000;
-    elements.prepaymentType.value = "term";
-
-    currentSchedule = [];
-    showFullSchedule = false;
-
-    elements.resultSection.classList.add("hidden");
-
-    clearError();
-    updateConditionalFields();
-}
-
-
-/* ------------------------------
-   入力値の取得・検証
------------------------------- */
-
-function getInputValues() {
-    return {
-        amount: Number(elements.amount.value),
-        annualRate:
-            Number(elements.annualRate.value),
-        years: Number(elements.years.value),
-        repaymentMethod:
-            elements.repaymentMethod.value,
-
-        useBonus: elements.useBonus.checked,
-        bonusPrincipal:
-            elements.useBonus.checked
-                ? Number(elements.bonusPrincipal.value)
-                : 0,
-        firstBonusMonth:
-            Number(elements.firstBonusMonth.value),
-
-        usePrepayment:
-            elements.usePrepayment.checked,
-        prepaymentMonth:
-            Number(elements.prepaymentMonth.value),
-        prepaymentAmount:
-            Number(elements.prepaymentAmount.value),
-        prepaymentType:
-            elements.prepaymentType.value
-    };
-}
-
-
-function validateInputs(input) {
-    const totalMonths = input.years * 12;
-
-    if (
-        !Number.isFinite(input.amount) ||
-        input.amount <= 0
-    ) {
-        return "借入金額を1円以上で入力してください。";
-    }
-
-    if (
-        !Number.isFinite(input.annualRate) ||
-        input.annualRate < 0 ||
-        input.annualRate > 100
-    ) {
-        return "年利は0％以上100％以下で入力してください。";
-    }
-
-    if (
-        !Number.isInteger(input.years) ||
-        input.years < 1 ||
-        input.years > 50
-    ) {
-        return "返済期間は1年以上50年以下で入力してください。";
-    }
-
-    if (input.useBonus) {
-        if (
-            !Number.isFinite(input.bonusPrincipal) ||
-            input.bonusPrincipal <= 0
-        ) {
-            return "ボーナス返済に充てる元金を入力してください。";
-        }
-
-        if (input.bonusPrincipal >= input.amount) {
-            return "ボーナス返済の元金は、借入金額未満にしてください。";
-        }
-
-        if (
-            input.firstBonusMonth < 1 ||
-            input.firstBonusMonth > 6
-        ) {
-            return "最初のボーナス返済月は1～6か月目で指定してください。";
-        }
-    }
-
-    if (input.usePrepayment) {
-        if (
-            !Number.isInteger(input.prepaymentMonth) ||
-            input.prepaymentMonth < 1 ||
-            input.prepaymentMonth > totalMonths
-        ) {
-            return `繰上返済月は1～${totalMonths}か月目で入力してください。`;
-        }
-
-        if (
-            !Number.isFinite(input.prepaymentAmount) ||
-            input.prepaymentAmount <= 0
-        ) {
-            return "繰上返済額を1円以上で入力してください。";
-        }
-
-        if (input.prepaymentAmount >= input.amount) {
-            return "繰上返済額は借入金額未満にしてください。";
-        }
-    }
-
-    return "";
-}
-
-
-/* ------------------------------
-   支払額計算
------------------------------- */
-
-function calculateAnnuityPayment(
-    principal,
-    ratePerPeriod,
-    periods
-) {
-    if (principal <= 0 || periods <= 0) {
-        return 0;
-    }
-
-    if (ratePerPeriod === 0) {
-        return principal / periods;
-    }
-
-    const factor = Math.pow(
-        1 + ratePerPeriod,
-        periods
-    );
-
-    return (
-        principal *
-        ratePerPeriod *
-        factor /
-        (factor - 1)
+    errorMessage.classList.remove(
+        "visible"
     );
 }
 
 
-function countBonusPayments(
-    startMonth,
-    endMonth,
-    firstBonusMonth
-) {
-    let count = 0;
-
-    for (
-        let month = startMonth;
-        month <= endMonth;
-        month += 1
-    ) {
-        if (isBonusMonth(month, firstBonusMonth)) {
-            count += 1;
-        }
-    }
-
-    return count;
-}
-
-
-function isBonusMonth(month, firstBonusMonth) {
-    if (month < firstBonusMonth) {
-        return false;
-    }
-
-    return (
-        (month - firstBonusMonth) % 6 === 0
-    );
-}
-
-
-/* ------------------------------
-   シミュレーション本体
------------------------------- */
-
-function simulateLoan(input) {
-    const originalMonths = input.years * 12;
-    const monthlyRate =
-        input.annualRate / 100 / 12;
-
-    const regularPrincipal =
-        input.amount - input.bonusPrincipal;
-
-    let regularBalance = regularPrincipal;
-    let bonusBalance = input.bonusPrincipal;
-
-    let regularPayment = 0;
-    let bonusPayment = 0;
-
-    let regularPrincipalPayment = 0;
-    let bonusPrincipalPayment = 0;
-
-    let totalInterest = 0;
-    let totalPayments = 0;
-    let actualPrepayment = 0;
-
-    let prepaymentCompleted = false;
-    let paymentRecalculated = false;
-
-    const schedule = [];
-
-    const originalBonusCount =
-        countBonusPayments(
-            1,
-            originalMonths,
-            input.firstBonusMonth
-        );
-
-    if (input.repaymentMethod === "equalPayment") {
-        regularPayment =
-            calculateAnnuityPayment(
-                regularPrincipal,
-                monthlyRate,
-                originalMonths
-            );
-
-        const sixMonthRate =
-            Math.pow(1 + monthlyRate, 6) - 1;
-
-        bonusPayment =
-            calculateAnnuityPayment(
-                input.bonusPrincipal,
-                sixMonthRate,
-                originalBonusCount
-            );
-    } else {
-        regularPrincipalPayment =
-            regularPrincipal / originalMonths;
-
-        bonusPrincipalPayment =
-            originalBonusCount > 0
-                ? input.bonusPrincipal /
-                    originalBonusCount
-                : 0;
-    }
-
-    const initialRegularPayment =
-        input.repaymentMethod === "equalPayment"
-            ? regularPayment
-            : (
-                regularPrincipalPayment +
-                regularPrincipal * monthlyRate
-            );
-
-    const initialBonusAddition =
-        input.useBonus
-            ? (
-                input.repaymentMethod ===
-                    "equalPayment"
-                    ? bonusPayment
-                    : (
-                        bonusPrincipalPayment +
-                        calculateAccumulatedBonusInterest(
-                            input.bonusPrincipal,
-                            monthlyRate,
-                            input.firstBonusMonth
-                        )
-                    )
-            )
-            : 0;
-
-    /*
-        期間短縮型では当初期間を超えてループしないが、
-        丸め誤差などを考慮して上限を長めに設定する。
-    */
-    const maximumMonths =
-        input.prepaymentType === "term"
-            ? originalMonths
-            : originalMonths;
-
-    let accumulatedBonusInterest = 0;
-
-    for (
-        let month = 1;
-        month <= maximumMonths;
-        month += 1
-    ) {
-        const openingRegularBalance =
-            regularBalance;
-
-        const openingBonusBalance =
-            bonusBalance;
-
-        if (
-            regularBalance <= 0.000001 &&
-            bonusBalance <= 0.000001
-        ) {
-            break;
-        }
-
-        const regularInterest =
-            regularBalance * monthlyRate;
-
-        const bonusMonthlyInterest =
-            bonusBalance * monthlyRate;
-
-        accumulatedBonusInterest +=
-            bonusMonthlyInterest;
-
-        let regularScheduledPayment = 0;
-        let regularPrincipalPaid = 0;
-
-        let bonusScheduledPayment = 0;
-        let bonusPrincipalPaid = 0;
-        let bonusInterestPaid = 0;
-
-        const bonusMonth =
-            input.useBonus &&
-            isBonusMonth(
-                month,
-                input.firstBonusMonth
-            );
-
-        /*
-            通常月返済
-        */
-        if (regularBalance > 0) {
-            if (
-                input.repaymentMethod ===
-                "equalPayment"
-            ) {
-                regularScheduledPayment =
-                    Math.min(
-                        regularPayment,
-                        regularBalance +
-                            regularInterest
-                    );
-
-                regularPrincipalPaid =
-                    Math.max(
-                        0,
-                        regularScheduledPayment -
-                            regularInterest
-                    );
-            } else {
-                regularPrincipalPaid =
-                    Math.min(
-                        regularPrincipalPayment,
-                        regularBalance
-                    );
-
-                regularScheduledPayment =
-                    regularPrincipalPaid +
-                    regularInterest;
-            }
-
-            regularBalance -= regularPrincipalPaid;
-        }
-
-        /*
-            ボーナス月返済
-        */
-        if (
-            bonusMonth &&
-            bonusBalance > 0
-        ) {
-            bonusInterestPaid =
-                accumulatedBonusInterest;
-
-            if (
-                input.repaymentMethod ===
-                "equalPayment"
-            ) {
-                bonusScheduledPayment =
-                    Math.min(
-                        bonusPayment,
-                        bonusBalance +
-                            bonusInterestPaid
-                    );
-
-                bonusPrincipalPaid =
-                    Math.max(
-                        0,
-                        bonusScheduledPayment -
-                            bonusInterestPaid
-                    );
-            } else {
-                bonusPrincipalPaid =
-                    Math.min(
-                        bonusPrincipalPayment,
-                        bonusBalance
-                    );
-
-                bonusScheduledPayment =
-                    bonusPrincipalPaid +
-                    bonusInterestPaid;
-            }
-
-            bonusBalance -= bonusPrincipalPaid;
-            accumulatedBonusInterest = 0;
-        }
-
-        /*
-            繰上返済
-        */
-        let prepayment = 0;
-
-        if (
-            input.usePrepayment &&
-            !prepaymentCompleted &&
-            month === input.prepaymentMonth
-        ) {
-            const currentBalance =
-                regularBalance + bonusBalance;
-
-            prepayment = Math.min(
-                input.prepaymentAmount,
-                currentBalance
-            );
-
-            const allocation =
-                allocatePrepayment(
-                    regularBalance,
-                    bonusBalance,
-                    prepayment
-                );
-
-            regularBalance -=
-                allocation.regularAmount;
-
-            bonusBalance -=
-                allocation.bonusAmount;
-
-            actualPrepayment += prepayment;
-            prepaymentCompleted = true;
-
-            /*
-                返済額軽減型の場合は
-                繰上返済後の返済額を再計算する。
-            */
-            if (
-                input.prepaymentType === "payment"
-            ) {
-                const remainingMonths =
-                    originalMonths - month;
-
-                if (remainingMonths > 0) {
-                    if (
-                        input.repaymentMethod ===
-                        "equalPayment"
-                    ) {
-                        regularPayment =
-                            calculateAnnuityPayment(
-                                regularBalance,
-                                monthlyRate,
-                                remainingMonths
-                            );
-
-                        const remainingBonusCount =
-                            countBonusPayments(
-                                month + 1,
-                                originalMonths,
-                                input.firstBonusMonth
-                            );
-
-                        const sixMonthRate =
-                            Math.pow(
-                                1 + monthlyRate,
-                                6
-                            ) - 1;
-
-                        bonusPayment =
-                            calculateAnnuityPayment(
-                                bonusBalance,
-                                sixMonthRate,
-                                remainingBonusCount
-                            );
-                    } else {
-                        regularPrincipalPayment =
-                            regularBalance /
-                            remainingMonths;
-
-                        const remainingBonusCount =
-                            countBonusPayments(
-                                month + 1,
-                                originalMonths,
-                                input.firstBonusMonth
-                            );
-
-                        bonusPrincipalPayment =
-                            remainingBonusCount > 0
-                                ? bonusBalance /
-                                    remainingBonusCount
-                                : 0;
-                    }
-
-                    paymentRecalculated = true;
-                }
-            }
-        }
-
-        regularBalance =
-            Math.max(0, regularBalance);
-
-        bonusBalance =
-            Math.max(0, bonusBalance);
-
-        /*
-            最終月に残っているボーナス利息を清算する。
-        */
-        let finalBonusInterest = 0;
-
-        const totalBalanceAfterPayment =
-            regularBalance + bonusBalance;
-
-        if (
-            month === originalMonths &&
-            accumulatedBonusInterest > 0
-        ) {
-            finalBonusInterest =
-                accumulatedBonusInterest;
-
-            accumulatedBonusInterest = 0;
-        }
-
-        const interestPaid =
-            regularInterest +
-            bonusInterestPaid +
-            finalBonusInterest;
-
-        const scheduledPayment =
-            regularScheduledPayment +
-            bonusScheduledPayment +
-            finalBonusInterest;
-
-        const principalPaid =
-            regularPrincipalPaid +
-            bonusPrincipalPaid;
-
-        totalInterest += interestPaid;
-
-        totalPayments +=
-            scheduledPayment + prepayment;
-
-        schedule.push({
-            month: month,
-            openingBalance:
-                openingRegularBalance +
-                openingBonusBalance,
-            scheduledPayment:
-                scheduledPayment,
-            principalPaid:
-                principalPaid,
-            interestPaid:
-                interestPaid,
-            bonusPayment:
-                bonusScheduledPayment,
-            prepayment:
-                prepayment,
-            closingBalance:
-                regularBalance +
-                bonusBalance,
-            isBonusMonth:
-                bonusMonth,
-            isPrepaymentMonth:
-                prepayment > 0
-        });
-
-        if (
-            regularBalance <= 0.000001 &&
-            bonusBalance <= 0.000001
-        ) {
-            break;
-        }
-    }
-
-    /*
-        最終残高がわずかに残った場合は、
-        最終行に加算して調整する。
-    */
-    const remainingBalance =
-        regularBalance + bonusBalance;
-
-    if (
-        remainingBalance > 0.000001 &&
-        schedule.length > 0
-    ) {
-        const finalRow =
-            schedule[schedule.length - 1];
-
-        finalRow.scheduledPayment +=
-            remainingBalance;
-
-        finalRow.principalPaid +=
-            remainingBalance;
-
-        finalRow.closingBalance = 0;
-
-        totalPayments += remainingBalance;
-
-        regularBalance = 0;
-        bonusBalance = 0;
-    }
-
-    const actualMonths =
-        schedule.length;
-
-    return {
-        schedule: schedule,
-        initialRegularPayment:
-            initialRegularPayment,
-        initialBonusAddition:
-            initialBonusAddition,
-        initialBonusMonthPayment:
-            initialRegularPayment +
-            initialBonusAddition,
-        firstPayment:
-            schedule.length > 0
-                ? schedule[0].scheduledPayment
-                : 0,
-        totalPayment:
-            totalPayments,
-        totalInterest:
-            totalInterest,
-        actualPrepayment:
-            actualPrepayment,
-        actualMonths:
-            actualMonths,
-        reducedMonths:
-            Math.max(
-                0,
-                originalMonths - actualMonths
-            ),
-        paymentRecalculated:
-            paymentRecalculated
-    };
-}
-
-
-function calculateAccumulatedBonusInterest(
-    principal,
-    monthlyRate,
-    months
-) {
-    if (
-        principal <= 0 ||
-        monthlyRate === 0
-    ) {
-        return 0;
-    }
-
-    return (
-        principal *
-        (
-            Math.pow(
-                1 + monthlyRate,
-                months
-            ) - 1
-        )
-    );
-}
-
-
-function allocatePrepayment(
-    regularBalance,
-    bonusBalance,
-    prepayment
-) {
-    const totalBalance =
-        regularBalance + bonusBalance;
-
-    if (
-        totalBalance <= 0 ||
-        prepayment <= 0
-    ) {
-        return {
-            regularAmount: 0,
-            bonusAmount: 0
-        };
-    }
-
-    /*
-        通常返済部分とボーナス返済部分の
-        残高割合で按分する。
-    */
-    let regularAmount =
-        prepayment *
-        regularBalance /
-        totalBalance;
-
-    let bonusAmount =
-        prepayment - regularAmount;
-
-    regularAmount = Math.min(
-        regularAmount,
-        regularBalance
-    );
-
-    bonusAmount = Math.min(
-        bonusAmount,
-        bonusBalance
-    );
-
-    return {
-        regularAmount: regularAmount,
-        bonusAmount: bonusAmount
-    };
-}
-
-
-/* ------------------------------
-   実行・結果表示
------------------------------- */
-
-function runSimulation() {
-    clearError();
-
-    const input = getInputValues();
-    const validationMessage =
-        validateInputs(input);
-
-    if (validationMessage) {
-        showError(validationMessage);
-        return;
-    }
-
-    const result = simulateLoan(input);
-
-    currentSchedule = result.schedule;
-    showFullSchedule = false;
-
-    displaySummary(result, input);
-    displayRateComparison(input);
-    renderSchedule();
-
-    elements.resultSection.classList.remove(
-        "hidden"
-    );
-
-    elements.resultSection.scrollIntoView({
-        behavior: "smooth",
-        block: "start"
-    });
-}
-
-
-function displaySummary(result, input) {
-    elements.firstPayment.textContent =
-        formatYen(result.firstPayment);
-
-    elements.regularPayment.textContent =
-        formatYen(
-            result.initialRegularPayment
-        );
-
-    elements.bonusPayment.textContent =
-        input.useBonus
-            ? formatYen(
-                result.initialBonusMonthPayment
-            )
-            : "利用なし";
-
-    elements.totalPayment.textContent =
-        formatYen(result.totalPayment);
-
-    elements.totalInterest.textContent =
-        formatYen(result.totalInterest);
-
-    elements.actualPrepayment.textContent =
-        input.usePrepayment
-            ? formatYen(
-                result.actualPrepayment
-            )
-            : "利用なし";
-
-    elements.actualTerm.textContent =
-        formatTerm(result.actualMonths);
-
-    elements.reducedTerm.textContent =
-        result.reducedMonths > 0
-            ? `${result.reducedMonths}か月`
-            : "短縮なし";
-}
-
-
-/* ------------------------------
-   金利比較
------------------------------- */
-
-function displayRateComparison(originalInput) {
-    const rateCases = [
-        {
-            label: "現在の金利",
-            increase: 0
-        },
-        {
-            label: "金利＋0.5％",
-            increase: 0.5
-        },
-        {
-            label: "金利＋1.0％",
-            increase: 1.0
-        }
-    ];
-
-    elements.rateComparisonBody.innerHTML = "";
-
-    rateCases.forEach(rateCase => {
-        const comparisonInput = {
-            ...originalInput,
-            annualRate:
-                originalInput.annualRate +
-                rateCase.increase
-        };
-
-        const result =
-            simulateLoan(comparisonInput);
-
-        const row =
-            document.createElement("tr");
-
-        const difference =
-            rateCase.increase === 0
-                ? ""
-                : (
-                    result.initialRegularPayment -
-                    simulateLoan({
-                        ...originalInput
-                    }).initialRegularPayment
-                );
-
-        row.innerHTML = `
-            <td>${escapeHtml(rateCase.label)}</td>
-
-            <td>
-                ${comparisonInput.annualRate.toFixed(2)}％
-            </td>
-
-            <td>
-                ${formatYen(result.initialRegularPayment)}
-                ${
-                    difference === ""
-                        ? ""
-                        : `<br><span class="positive">
-                            ＋${formatYen(difference)}
-                           </span>`
-                }
-            </td>
-
-            <td>
-                ${formatYen(result.totalInterest)}
-            </td>
-        `;
-
-        elements.rateComparisonBody.appendChild(
-            row
-        );
-    });
-}
-
-
-/* ------------------------------
-   返済予定表
------------------------------- */
-
-function toggleSchedule() {
-    showFullSchedule = !showFullSchedule;
-    renderSchedule();
-}
-
-
-function renderSchedule() {
-    elements.scheduleBody.innerHTML = "";
-
-    if (currentSchedule.length === 0) {
-        elements.scheduleNote.textContent =
-            "返済予定表はありません。";
-        return;
-    }
-
-    const displayRows =
-        showFullSchedule
-            ? currentSchedule
-            : currentSchedule.slice(0, 24);
-
-    displayRows.forEach(item => {
-        const row =
-            document.createElement("tr");
-
-        if (item.isBonusMonth) {
-            row.classList.add("bonus-row");
-        }
-
-        if (item.isPrepaymentMonth) {
-            row.classList.add(
-                "prepayment-row"
-            );
-        }
-
-        row.innerHTML = `
-            <td>${item.month}</td>
-
-            <td>
-                ${formatYen(item.scheduledPayment)}
-            </td>
-
-            <td>
-                ${formatYen(item.principalPaid)}
-            </td>
-
-            <td>
-                ${formatYen(item.interestPaid)}
-            </td>
-
-            <td>
-                ${
-                    item.bonusPayment > 0
-                        ? formatYen(item.bonusPayment)
-                        : "-"
-                }
-            </td>
-
-            <td>
-                ${
-                    item.prepayment > 0
-                        ? formatYen(item.prepayment)
-                        : "-"
-                }
-            </td>
-
-            <td>
-                ${formatYen(item.closingBalance)}
-            </td>
-        `;
-
-        elements.scheduleBody.appendChild(row);
-    });
-
-    if (
-        !showFullSchedule &&
-        currentSchedule.length > 24
-    ) {
-        elements.scheduleNote.textContent =
-            `最初の24回を表示しています。全${currentSchedule.length}回です。`;
-
-        elements.toggleScheduleButton.textContent =
-            "全期間を表示";
-    } else {
-        elements.scheduleNote.textContent =
-            `全${currentSchedule.length}回を表示しています。`;
-
-        elements.toggleScheduleButton.textContent =
-            currentSchedule.length > 24
-                ? "24回まで表示"
-                : "全期間を表示";
-    }
-
-    elements.toggleScheduleButton.classList.toggle(
-        "hidden",
-        currentSchedule.length <= 24
-    );
-}
-
-
-/* ------------------------------
-   表示補助
------------------------------- */
+/* 円表示 */
 
 function formatYen(value) {
-    if (
-        !Number.isFinite(value) ||
-        value < 0
-    ) {
+    if (!Number.isFinite(value)) {
         return "0円";
     }
 
@@ -1138,34 +527,6 @@ function formatYen(value) {
 }
 
 
-function formatTerm(months) {
-    const years =
-        Math.floor(months / 12);
-
-    const remainingMonths =
-        months % 12;
-
-    if (years === 0) {
-        return `${remainingMonths}か月`;
-    }
-
-    if (remainingMonths === 0) {
-        return `${years}年`;
-    }
-
-    return `${years}年${remainingMonths}か月`;
-}
-
-
-function escapeHtml(text) {
-    return String(text)
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#039;");
-}
-
-
 /* 初期表示 */
-updateConditionalFields();
+
+updateMethodDescription();
